@@ -1,0 +1,311 @@
+apiVersion: devops.alauda.io/v1alpha1
+kind: PipelineTemplate
+metadata:
+  name: BuildImageAndDeployService
+  annotations:
+    alauda.io/displayName.zh-CN: 构建并更新服务
+    alauda.io/displayName.en: Build image and deploy service
+    alauda.io/description.zh-CN: 克隆代码并构建镜像然后更新服务
+    alauda.io/description.en: Clone code, build docker image and update a service
+    alauda.io/readme.zh-CN: 克隆代码并构建镜像然后更新服务
+    alauda.io/readme.en: Clone code, build docker image and update a service
+    alauda.io/version: v0.1
+    alauda.io/style.icon: buildUpdateService
+  labels:
+    category: CICD
+spec:
+  engine: graph
+  withSCM: true
+  stages:
+    - name: Clone
+      tasks:
+        - name: Clone
+          type: public/clone
+    - name: BuildImage
+      tasks:
+        - name: BuildImage
+          type: public/alaudaBuildImage
+          options:
+            timeout: 3600
+    - name: DeployService
+      tasks:
+        - name: DeployService
+          type: public/alaudaDeployService
+          options:
+            timeout: 3600
+  arguments:
+    - displayName:
+        zh-CN: "基本信息"
+        en: "Basic Info"
+      items:
+        - name: "dockerfilePath"
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.dockerfilePath
+          display:
+            type: string
+            name:
+              zh-CN: "Dockerfile路径"
+              en: "Dockerfile's path"
+          required: true
+          default: ./
+        - name: "contextDir"
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.contextDir
+          display:
+            type: string
+            name:
+              zh-CN: "构建路径"
+              en: "Build context"
+            description:
+              zh-CN: 构建的代码路径。
+          required: true
+          default: ./
+    - displayName:
+        zh-CN: "配置持续集成"
+        en: "CI Configuration"
+      items:
+        - name: "useYaml"
+          schema:
+            type: boolean
+          binding:
+            - BuildImage.args.useYaml
+          display:
+            type: boolean
+            name:
+              zh-CN: "使用 YAML 构建的镜像"
+              en: "Use YAML for CI container"
+            description:
+              zh-CN: 若使用自定义YAML镜像，则会使用您在代码仓库的alaudaci.yml中指定的镜像作为持续集成的运行环境。
+              en: If enabled will use the alaudaci.yml file in the code repository to start a CI container.
+          required: false
+        - name: "ciYamlFile"
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.ciYamlFile
+          display:
+            type: string
+            name:
+              zh-CN: "alaudaci.yml 文件路径"
+              en: "alaudaci.yml's path"
+          required: false
+          default: ./alaudaci.yml
+          validation:
+            pattern: .*\.yml$
+          relation:
+            - action: hidden
+              when:
+                name: useYaml
+                value: false
+            - action: show
+              when:
+                name: useYaml
+                value: true
+        - name: "ciImage"
+          schema:
+            type: alauda.io/imagerepositorymix
+          binding:
+            - BuildImage.args.ciImage
+          display:
+            type: alauda.io/imagerepositorymix
+            name:
+              zh-CN: "CI镜像"
+              en: "CI Image"
+          required: false
+          relation:
+            - action: hidden
+              when:
+                name: useYaml
+                value: true
+            - action: show
+              when:
+                name: useYaml
+                value: false
+        - name: "ciImageTag"
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.ciImageTag
+          display:
+            type: alauda.io/imagetag
+            related: ciImage
+            name:
+              zh-CN: "CI镜像Tag"
+              en: "CI image tag"
+          required: false
+          relation:
+            - action: hidden
+              when:
+                name: useYaml
+                value: true
+            - action: show
+              when:
+                name: useYaml
+                value: false
+        - name: ciImageRegistryCredentialsId
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.ciImageRegistryCredentialsId
+          display:
+            type: alauda.io/jenkinscredentials
+            related: jenkins_integration_id
+            name:
+              zh-CN: "CI镜像：镜像中心凭据"
+              en: "CI image: Registry credentials"
+          required: false
+        - name: "ciCommands"
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.ciCommands
+          display:
+            type: shellscripts
+            name:
+              zh-CN: "自定义命令"
+              en: "CI commands"
+          required: false
+          relation:
+            - action: hidden
+              when:
+                name: useYaml
+                value: true
+            - action: show
+              when:
+                name: useYaml
+                value: false
+    - displayName:
+        zh-CN: 配置镜像仓库 
+        en: Image Repository Configuration
+      items:
+        - name: "image"
+          schema:
+            type: alauda.io/imagerepositorymix
+          binding:
+            - BuildImage.args.image
+            - DeployService.args.image
+          display:
+            type: alauda.io/imagerepositorymix
+            name:
+              zh-CN: "镜像仓库"
+              en: "Image repository"
+            description:
+              zh: "构建生成的镜像"
+              en: "Image repository to store the built image"
+          required: true
+        - name: "imageTag"
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.imageTag
+          display:
+            type: string
+            name:
+              zh-CN: "镜像版本"
+              en: "Customized image tag"
+          default: "latest"
+          required: true
+        - name: imageExtraTag
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.imageExtraTag
+            - DeployService.args.imageTag
+          display:
+            type: string
+            name:
+              zh-CN: "附加版本"
+              en: "Auto generated tag"
+            description:
+              zh-CN: "将会使用该版本的镜像更新服务"
+              en: "Used to update service"
+          required: false
+        - name: imageRegistryCredentialsId
+          schema:
+            type: string
+          binding:
+            - BuildImage.args.imageRegistryCredentialsId
+          display:
+            type: alauda.io/jenkinscredentials
+            related: jenkins_integration_id
+            name:
+              zh-CN: "镜像中心凭据"
+              en: "Registry credentials"
+          required: false
+        - name: "useImageCache"
+          schema:
+            type: boolean
+          binding:
+            - BuildImage.args.useImageCache
+          display:
+            type: boolean
+            name:
+              zh-CN: "开启镜像缓存"
+              en: "Use image cache"
+          default: ""
+          required: true
+    - displayName:
+        zh-CN: 更新服务 
+        en: Deploy Service
+      items:
+        - name: containerInfo
+          schema:
+            type: alauda.io/newk8scontainermix
+          binding:
+            - DeployService.args.containerInfo
+          display:
+            type: alauda.io/newk8scontainermix
+            name:
+              zh-CN: "容器"
+              en: "Container"
+          required: true
+        - name: command
+          schema:
+            type: string
+          binding:
+            - DeployService.args.command
+          display:
+            type: string
+            name:
+              zh-CN: "接入点"
+              en: "Entrypoint"
+          required: false
+        - name: args
+          schema:
+            type: string
+          binding:
+            - DeployService.args.args
+          display:
+            type: string
+            name:
+              zh-CN: "执行命令"
+              en: "Run Command"
+          required: false
+        - name: env
+          schema:
+            type: alauda.io/k8senv
+          binding:
+            - DeployService.args.env
+          display:
+            type: alauda.io/k8senv
+            name:
+              zh-CN: "环境变量"
+              en: "Environment variables"
+        - name: timeout
+          schema:
+            type: int
+          binding:
+            - DeployService.args.timeout
+          display:
+            type: int
+            name:
+              zh-CN: "超时时间（秒）"
+              en: "Timeout (s)"
+          required: true
+
+
+
