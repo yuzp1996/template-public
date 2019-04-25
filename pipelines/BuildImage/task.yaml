@@ -1,0 +1,94 @@
+apiVersion: devops.alauda.io/v1alpha1
+kind: PipelineTaskTemplate
+metadata:
+  name: clone
+  namespace: default
+  annotations:
+    alauda.io/displayName.zh-CN: "Git Clone"
+    alauda.io/version: "0.0.5"
+    alauda.io/style.icon: ""
+  labels:
+    category: CI
+spec:
+  engine: gotpl
+  agent:
+    label: "temp"
+  body: |+
+    script {
+      env.CODE_REPO = "{{.PlatformCodeRepository.url}}"
+      env.CREDENTIAL_ID = "{{.PlatformCodeRepository.credentialId}}"
+      env.BRANCH = "{{.Branch}}"
+
+      def scmVars = checkout([
+        $class: 'GitSCM',
+        branches: [[name: "${BRANCH}"]],
+        extensions: [[
+          $class: 'SubmoduleOption',
+          recursiveSubmodules: true,
+          reference: '',
+        ],[
+          $class: 'RelativeTargetDirectory',
+          relativeTargetDir: '{{.RelativeDirectory}}'
+        ]],
+        userRemoteConfigs: [[
+          credentialsId: "${CREDENTIAL_ID}",
+          url: "${CODE_REPO}"
+        ]]
+      ])
+
+      env.GIT_COMMIT = scmVars.GIT_COMMIT
+      env.GIT_BRANCH = scmVars.GIT_LOCAL_BRANCH
+      env.RELATIVE_DIRECTORY = '{{.RelativeDirectory}}'
+    }
+  exports:
+    - name: GIT_COMMIT
+      description:
+        zh-CN: "Git Commit ID"
+        en: "Git Commit ID"
+    - name: GIT_BRANCH
+      description:
+        zh-CN: "Git 分支名称"
+        en: "Git Branch Name"
+    - name: RelativeDirectory
+      description:
+        zh-CN: "相对目录"
+        en: "RelativeDirectory"
+  arguments:
+    - name: "PlatformCodeRepository"
+      schema:
+        type: alauda.io/coderepositorymix
+      required: true
+      display:
+        type: alauda.io/coderepositorymix
+        name:
+          zh-CN: "代码仓库"
+          en: RepositoryPath
+        description:
+          zh-CN: "选择已为项目分配的代码仓库"
+          en: ""
+    - name: "Branch"
+      schema:
+        type: string
+      required: false
+      default: "*/master"
+      display:
+        type: string
+        name:
+          zh-CN: "分支"
+          en: Branch
+        description:
+          zh-CN: "检出代码仓库中的分支。默认为：*/master"
+          en: ""
+    - name: "RelativeDirectory"
+      schema:
+        type: string
+      required: false
+      default: "."
+      display:
+        type: string
+        name:
+          zh-CN: "相对目录"
+          en: RelativeDirectory
+        description:
+          zh-CN: "指定签出 Git 仓库的本地目录(相对于 workspace 根目录)。若为空，将使用 workspace 根目录"
+          en: "Specify a local directory (relative to the workspace root) where the Git repository will be checked out. If left empty, the workspace root itself will be used"
