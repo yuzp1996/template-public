@@ -41,15 +41,15 @@ spec:
       env.RELATIVE_DIRECTORY = '{{.RelativeDirectory}}'
     }
   exports:
-    - name: GIT_COMMIT
+    - name: GIT_COMMIT_ZPYU
       description:
         zh-CN: "Git Commit ID"
         en: "Git Commit ID"
-    - name: GIT_BRANCH
+    - name: GIT_BRANCH_ZPYU
       description:
         zh-CN: "Git 分支名称"
         en: "Git Branch Name"
-    - name: RelativeDirectory
+    - name: RelativeDirectory_ZPYU
       description:
         zh-CN: "相对目录"
         en: "RelativeDirectory"
